@@ -313,6 +313,38 @@ contract BuildersV4OverIssuancePoC is Test {
         assertGt(claimedAfter, distAfter, "claimedRewards did not exceed distributedRewards");
     }
 
+    /// C. cumulative claims exceed the ENTIRE reward emission allocated to Builders since the
+    /// V4 diamond cut. `_emissionBudget()` uses the V4 cut timestamp read from Base
+    /// (block 39654132 -> 2025-12-18 22:40:11 UTC).
+    function test_C_claimsExceedEmissionBudget() public {
+        uint256 cutTs = 1766097611;
+        uint256 forkTs = block.timestamp;
+        uint256 em = rp.getPeriodRewards(POOL_ID, uint128(cutTs), uint128(forkTs));
+        uint256 share = _networkShare();
+        uint256 budget = em * share / PRECISION;
+
+        (uint256 distBefore, , uint256 claimedBefore) = _ledger();
+        (uint256 paid, uint256 okc, uint256 failc) = _sweep();
+        (uint256 distAfter, , uint256 claimedAfter) = _ledger();
+
+        console2.log("V4 cut timestamp                 :", cutTs);
+        console2.log("fork timestamp                   :", forkTs);
+        console2.log("pool 3 emission over V4 era      :", em);
+        console2.log("networkShare                     :", share);
+        console2.log("BUILDERS EMISSION BUDGET         :", budget);
+        console2.log("");
+        console2.log("claimedRewards before            :", claimedBefore);
+        console2.log("claims ok / reverted             :", okc, failc);
+        console2.log("TOTAL PAID OUT                   :", paid);
+        console2.log("claimedRewards after             :", claimedAfter);
+        console2.log("");
+        console2.log("claimed AFTER - budget           :", claimedAfter > budget ? claimedAfter - budget : 0);
+        console2.log("paid - ledger outstanding        :", paid > (distBefore - claimedBefore) ? paid - (distBefore - claimedBefore) : 0);
+        console2.log("claimed after - distributed after:", claimedAfter > distAfter ? claimedAfter - distAfter : 0);
+
+        assertGt(claimedAfter, budget, "claims stayed inside the emission budget");
+    }
+
     /// D. control - total extracted is order dependent at the same block
     function test_D_orderDependence() public {
         (uint256 dist, , uint256 claimed) = _ledger();
